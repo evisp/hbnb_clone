@@ -4,20 +4,26 @@ Handles CRUD operations for users.
 """
 
 from flask_restx import Namespace, Resource, fields
-from app.services.facade import HBnBFacade
 from app.services import facade
 
 # Create namespace
 api = Namespace('users', description='User operations')
 
-# Initialize facade! Not needed, singletong pattern
-# facade = HBnBFacade()
-
-# Define the user model for input validation and documentation
-user_model = api.model('User', {
+# Input model (with password) - used for POST and PUT
+user_input_model = api.model('UserInput', {
     'first_name': fields.String(required=True, description='First name of the user'),
     'last_name': fields.String(required=True, description='Last name of the user'),
-    'email': fields.String(required=True, description='Email of the user')
+    'email': fields.String(required=True, description='Email of the user'),
+    'password': fields.String(required=True, description='Password of the user')
+})
+
+# Output model (without password) - used for responses
+user_output_model = api.model('UserOutput', {
+    'id': fields.String(description='User ID'),
+    'first_name': fields.String(description='First name of the user'),
+    'last_name': fields.String(description='Last name of the user'),
+    'email': fields.String(description='Email of the user'),
+    'is_admin': fields.Boolean(description='Admin status')
 })
 
 
@@ -25,8 +31,8 @@ user_model = api.model('User', {
 class UserList(Resource):
     """Handles operations on the user collection."""
 
-    @api.expect(user_model, validate=True)
-    @api.response(201, 'User successfully created')
+    @api.expect(user_input_model, validate=True)
+    @api.response(201, 'User successfully created', user_output_model)
     @api.response(400, 'Email already registered')
     @api.response(400, 'Invalid input data')
     def post(self):
@@ -34,30 +40,34 @@ class UserList(Resource):
         user_data = api.payload
 
         try:
-            # Create user via facade (email uniqueness checked there)
+            # Create user via facade (password will be hashed in User model)
             new_user = facade.create_user(user_data)
             
+            # Return user data WITHOUT password
             return {
                 'id': new_user.id,
                 'first_name': new_user.first_name,
                 'last_name': new_user.last_name,
-                'email': new_user.email
+                'email': new_user.email,
+                'is_admin': new_user.is_admin
             }, 201
 
         except ValueError as e:
             return {'error': str(e)}, 400
 
-    @api.response(200, 'List of users retrieved successfully')
+    @api.response(200, 'List of users retrieved successfully', [user_output_model])
     def get(self):
         """Retrieve a list of all users."""
         users = facade.get_all_users()
         
+        # Return user data WITHOUT passwords
         return [
             {
                 'id': user.id,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'email': user.email
+                'email': user.email,
+                'is_admin': user.is_admin
             }
             for user in users
         ], 200
@@ -68,7 +78,7 @@ class UserList(Resource):
 class UserResource(Resource):
     """Handles operations on a specific user."""
 
-    @api.response(200, 'User details retrieved successfully')
+    @api.response(200, 'User details retrieved successfully', user_output_model)
     @api.response(404, 'User not found')
     def get(self, user_id):
         """Get user details by ID."""
@@ -77,14 +87,16 @@ class UserResource(Resource):
         if not user:
             return {'error': 'User not found'}, 404
         
+        # Return user data WITHOUT password
         return {
             'id': user.id,
             'first_name': user.first_name,
             'last_name': user.last_name,
-            'email': user.email
+            'email': user.email,
+            'is_admin': user.is_admin
         }, 200
 
-    @api.expect(user_model, validate=True)
+    @api.expect(user_input_model, validate=True)
     @api.response(200, 'User successfully updated')
     @api.response(404, 'User not found')
     @api.response(400, 'Invalid input data')
@@ -94,18 +106,14 @@ class UserResource(Resource):
         user_data = api.payload
 
         try:
-            # Update user via facade
+            # Update user via facade (password will be hashed if provided)
             updated_user = facade.update_user(user_id, user_data)
             
             if not updated_user:
                 return {'error': 'User not found'}, 404
             
-            return {
-                'id': updated_user.id,
-                'first_name': updated_user.first_name,
-                'last_name': updated_user.last_name,
-                'email': updated_user.email
-            }, 200
+            # Return success message only (as per requirements)
+            return {'message': 'User updated successfully'}, 200
 
         except ValueError as e:
             return {'error': str(e)}, 400

@@ -4,7 +4,7 @@ Defines the User entity with validation for user attributes.
 """
 
 from app.models.base_model import BaseModel
-
+from app.extensions import bcrypt
 
 class User(BaseModel):
     """
@@ -20,7 +20,7 @@ class User(BaseModel):
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
     """
 
-    def __init__(self, first_name, last_name, email, is_admin=False):
+    def __init__(self, first_name, last_name, email, is_admin=False, password=None):
         """
         Initialize a new User instance.
         
@@ -29,6 +29,7 @@ class User(BaseModel):
             last_name (str): Last name of the user
             email (str): Email address of the user
             is_admin (bool, optional): Admin status. Defaults to False.
+            password (str, optional): Plain text password. Defaults to None.
             
         Raises:
             ValueError: If any validation fails
@@ -40,6 +41,12 @@ class User(BaseModel):
         self.last_name = last_name
         self.email = email
         self.is_admin = is_admin
+        self._password = None  # Initialize password attribute
+        
+        # Hash password if provided
+        if password:
+            self.hash_password(password)
+
 
     @property
     def first_name(self):
@@ -84,3 +91,26 @@ class User(BaseModel):
     def is_admin(self, value):
         """Set admin status."""
         self._is_admin = value
+
+    def hash_password(self, password):
+        """
+        Hashes the password before storing it.
+        
+        Args:
+            password (str): Plain text password to hash
+        """
+        self._password = bcrypt.generate_password_hash(password).decode('utf-8')
+        print(f"DEBUG: Password hashed: {self._password}")  # Temporary debug line
+
+    def verify_password(self, password):
+        """
+        Verifies if the provided password matches the hashed password.
+        
+        Args:
+            password (str): Plain text password to verify
+            
+        Returns:
+            bool: True if password matches, False otherwise
+        """
+        return bcrypt.check_password_hash(self._password, password)
+

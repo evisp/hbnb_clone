@@ -97,6 +97,7 @@ class HBnBFacade:
                 - first_name (str, optional): User's first name
                 - last_name (str, optional): User's last name
                 - email (str, optional): User's email address
+                - password (str, optional): User's new password
         
         Returns:
             User: The updated user instance, or None if user not found
@@ -114,10 +115,20 @@ class HBnBFacade:
             if existing_user:
                 raise ValueError("Email already registered")
         
-        # Update user (validation happens in User model via property setters)
+        # Handle password separately (needs hashing)
+        if 'password' in user_data:
+            user.hash_password(user_data['password'])
+            # Remove password from user_data so it's not set as plain text
+            user_data = {k: v for k, v in user_data.items() if k != 'password'}
+        
+        # Update other user fields (validation happens in User model via property setters)
         self.user_repo.update(user_id, user_data)
         return user
 
+
+    # =====================
+    # Place-related methods
+    # =====================
     def create_place(self, place_data):
         """
         Create a new place.
