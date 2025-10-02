@@ -226,6 +226,25 @@ class HBnBFacade:
 
         return place
     
+    def delete_place(self, place_id):
+        """
+        Delete a place.
+        
+        Args:
+            place_id (str): Place UUID
+        
+        Returns:
+            bool: True if deleted, False if not found
+        """
+        place = self.get_place(place_id)
+        if not place:
+            return False
+        
+        # Delete the place from repository
+        self.place_repo.delete(place_id)
+        return True
+
+    
     # =====================
     # Review-related methods (Placeholders for now)
     # =====================

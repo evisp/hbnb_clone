@@ -5,7 +5,7 @@ from app.api.v1.users import api as users_ns
 from app.api.v1.amenities import api as amenities_ns
 from app.api.v1.places import api as places_ns
 from app.api.v1.reviews import api as reviews_ns
-from app.api.v1.auth import api as auth_ns  
+from app.api.v1.auth import api as auth_ns
 
 
 def create_app(config_class="config.DevelopmentConfig"):
@@ -22,6 +22,15 @@ def create_app(config_class="config.DevelopmentConfig"):
     api.add_namespace(amenities_ns, path='/api/v1/amenities')
     api.add_namespace(places_ns, path='/api/v1/places')
     api.add_namespace(reviews_ns, path='/api/v1/reviews')
-    api.add_namespace(auth_ns, path='/api/v1/auth')  
+    api.add_namespace(auth_ns, path='/api/v1/auth')
+
+    # Register CLI commands
+    from app import commands
+    commands.init_app(app)
+
+    # Initialize default data (admin user)
+    with app.app_context():
+        from app.init_data import init_default_admin
+        init_default_admin()
 
     return app

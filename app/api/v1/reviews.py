@@ -4,7 +4,7 @@ Handles CRUD operations for reviews and listing reviews by place.
 """
 
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app.services import facade
 
 api = Namespace('reviews', description='Review operations')
@@ -104,8 +104,11 @@ class ReviewResource(Resource):
     @api.response(401, 'Unauthorized - Authentication required')
     @jwt_required()
     def put(self, review_id):
-        """Update a review (Authentication required, own review only)."""
-        current_user = get_jwt_identity()
+        """Update a review (Authentication required, author or admin only)."""
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        is_admin = claims.get('is_admin', False)
+        
         review_data = api.payload
 
         # Get the review
@@ -114,8 +117,8 @@ class ReviewResource(Resource):
         if not review:
             return {'error': 'Review not found'}, 404
 
-        # Check ownership - only the review author can update
-        if review.user_id != current_user:
+        # Check ownership (admins can bypass this check)
+        if not is_admin and review.user_id != current_user_id:
             return {'error': 'Unauthorized action'}, 403
 
         # Ensure user_id and place_id remain unchanged
@@ -135,8 +138,10 @@ class ReviewResource(Resource):
     @api.response(401, 'Unauthorized - Authentication required')
     @jwt_required()
     def delete(self, review_id):
-        """Delete a review (Authentication required, own review only)."""
-        current_user = get_jwt_identity()
+        """Delete a review (Authentication required, author or admin only)."""
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        is_admin = claims.get('is_admin', False)
 
         # Get the review
         review = facade.get_review(review_id)
@@ -144,15 +149,14 @@ class ReviewResource(Resource):
         if not review:
             return {'error': 'Review not found'}, 404
 
-        # Check ownership - only the review author can delete
-        if review.user_id != current_user:
+        # Check ownership (admins can bypass this check)
+        if not is_admin and review.user_id != current_user_id:
             return {'error': 'Unauthorized action'}, 403
 
-        # Delete the review (we already validated it exists and user owns it)
+        # Delete the review (we already validated it exists and user has permission)
         facade.delete_review(review_id)
         
         return {'message': 'Review deleted successfully'}, 200
-
 
 
 @api.route('/places/<place_id>/reviews')
