@@ -17,14 +17,14 @@ class Place(BaseModel):
         price (float): Price per night (must be positive)
         latitude (float): Latitude coordinate (-90.0 to 90.0)
         longitude (float): Longitude coordinate (-180.0 to 180.0)
-        owner (User): Owner of the place (required)
+        owner_id (str): ID of the user who owns the place (required)
         reviews (list): List of Review instances associated with the place
         amenities (list): List of Amenity instances associated with the place
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
     """
 
-    def __init__(self, title, description, price, latitude, longitude, owner):
+    def __init__(self, title, description, price, latitude, longitude, owner_id):
         """
         Initialize a new Place instance.
         
@@ -34,11 +34,10 @@ class Place(BaseModel):
             price (float): Price per night
             latitude (float): Latitude coordinate
             longitude (float): Longitude coordinate
-            owner (User): User instance who owns the place
+            owner_id (str): ID of the user who owns the place
             
         Raises:
             ValueError: If validation fails
-            TypeError: If owner is not a User instance
         """
         super().__init__()
         
@@ -48,7 +47,7 @@ class Place(BaseModel):
         self.price = price
         self.latitude = latitude
         self.longitude = longitude
-        self.owner = owner
+        self.owner_id = owner_id
         
         # Initialize relationship lists
         self.reviews = []
@@ -116,17 +115,16 @@ class Place(BaseModel):
         self._longitude = float(value)
 
     @property
-    def owner(self):
-        """Get the place owner."""
-        return self._owner
+    def owner_id(self):
+        """Get the owner's user ID."""
+        return self._owner_id
 
-    @owner.setter
-    def owner(self, value):
-        """Set the owner with validation (must be a User instance)."""
-        from app.models.user import User
-        if not isinstance(value, User):
-            raise TypeError("Owner must be a User instance.")
-        self._owner = value
+    @owner_id.setter
+    def owner_id(self, value):
+        """Set the owner ID with validation."""
+        if not value or not isinstance(value, str):
+            raise ValueError("Owner ID is required and must be a string.")
+        self._owner_id = value
 
     def add_review(self, review):
         """

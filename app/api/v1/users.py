@@ -4,12 +4,13 @@ Handles CRUD operations for users.
 """
 
 from flask_restx import Namespace, Resource, fields
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services import facade
 
 # Create namespace
 api = Namespace('users', description='User operations')
 
-# Input model (with password) - used for POST and PUT
+# Input model with password (for registration)
 user_input_model = api.model('UserInput', {
     'first_name': fields.String(required=True, description='First name of the user'),
     'last_name': fields.String(required=True, description='Last name of the user'),
@@ -17,7 +18,13 @@ user_input_model = api.model('UserInput', {
     'password': fields.String(required=True, description='Password of the user')
 })
 
-# Output model (without password) - used for responses
+# Update model without email and password (for authenticated updates)
+user_update_model = api.model('UserUpdate', {
+    'first_name': fields.String(required=True, description='First name of the user'),
+    'last_name': fields.String(required=True, description='Last name of the user')
+})
+
+# Output model (without password)
 user_output_model = api.model('UserOutput', {
     'id': fields.String(description='User ID'),
     'first_name': fields.String(description='First name of the user'),
@@ -40,10 +47,9 @@ class UserList(Resource):
         user_data = api.payload
 
         try:
-            # Create user via facade (password will be hashed in User model)
+            # Create user via facade (email uniqueness checked there)
             new_user = facade.create_user(user_data)
             
-            # Return user data WITHOUT password
             return {
                 'id': new_user.id,
                 'first_name': new_user.first_name,
@@ -60,7 +66,6 @@ class UserList(Resource):
         """Retrieve a list of all users."""
         users = facade.get_all_users()
         
-        # Return user data WITHOUT passwords
         return [
             {
                 'id': user.id,
@@ -87,7 +92,6 @@ class UserResource(Resource):
         if not user:
             return {'error': 'User not found'}, 404
         
-        # Return user data WITHOUT password
         return {
             'id': user.id,
             'first_name': user.first_name,
@@ -96,24 +100,36 @@ class UserResource(Resource):
             'is_admin': user.is_admin
         }, 200
 
-    @api.expect(user_input_model, validate=True)
+    @api.expect(user_update_model, validate=True)
     @api.response(200, 'User successfully updated')
     @api.response(404, 'User not found')
+    @api.response(403, 'Unauthorized action')
     @api.response(400, 'Invalid input data')
-    @api.response(400, 'Email already registered')
+    @api.response(401, 'Unauthorized - Authentication required')
+    @jwt_required()
     def put(self, user_id):
-        """Update a user's information."""
+        """Update user information (Authentication required, own profile only)."""
+        current_user = get_jwt_identity()
         user_data = api.payload
 
+        # Check if user is trying to modify their own profile
+        if user_id != current_user:
+            return {'error': 'Unauthorized action'}, 403
+
+        # Check if trying to modify email or password
+        if 'email' in user_data or 'password' in user_data:
+            return {'error': 'You cannot modify email or password'}, 400
+
         try:
-            # Update user via facade (password will be hashed if provided)
+            # Update user via facade
             updated_user = facade.update_user(user_id, user_data)
             
             if not updated_user:
                 return {'error': 'User not found'}, 404
             
-            # Return success message only (as per requirements)
-            return {'message': 'User updated successfully'}, 200
+            return {
+                'message': 'User updated successfully'
+            }, 200
 
         except ValueError as e:
             return {'error': str(e)}, 400

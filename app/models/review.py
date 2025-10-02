@@ -14,33 +14,32 @@ class Review(BaseModel):
         id (str): Unique identifier (inherited from BaseModel)
         text (str): Content of the review (required)
         rating (int): Rating from 1 to 5 (required)
-        place (Place): Place being reviewed (required)
-        user (User): User who wrote the review (required)
+        place_id (str): ID of the place being reviewed (required)
+        user_id (str): ID of the user who wrote the review (required)
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
     """
 
-    def __init__(self, text, rating, place, user):
+    def __init__(self, text, rating, place_id, user_id):
         """
         Initialize a new Review instance.
         
         Args:
             text (str): Content of the review
             rating (int): Rating between 1 and 5
-            place (Place): Place instance being reviewed
-            user (User): User instance who wrote the review
+            place_id (str): ID of the place being reviewed
+            user_id (str): ID of the user who wrote the review
             
         Raises:
             ValueError: If validation fails
-            TypeError: If place or user are not proper instances
         """
         super().__init__()
         
         # Use property setters for validation
         self.text = text
         self.rating = rating
-        self.place = place
-        self.user = user
+        self.place_id = place_id
+        self.user_id = user_id
 
     @property
     def text(self):
@@ -69,27 +68,25 @@ class Review(BaseModel):
         self._rating = value
 
     @property
-    def place(self):
-        """Get the place being reviewed."""
-        return self._place
+    def place_id(self):
+        """Get the place ID."""
+        return self._place_id
 
-    @place.setter
-    def place(self, value):
-        """Set the place with validation (must be a Place instance)."""
-        from app.models.place import Place
-        if not isinstance(value, Place):
-            raise TypeError("Place must be a Place instance.")
-        self._place = value
+    @place_id.setter
+    def place_id(self, value):
+        """Set the place ID with validation."""
+        if not value or not isinstance(value, str):
+            raise ValueError("Place ID is required and must be a string.")
+        self._place_id = value
 
     @property
-    def user(self):
-        """Get the user who wrote the review."""
-        return self._user
+    def user_id(self):
+        """Get the user ID."""
+        return self._user_id
 
-    @user.setter
-    def user(self, value):
-        """Set the user with validation (must be a User instance)."""
-        from app.models.user import User
-        if not isinstance(value, User):
-            raise TypeError("User must be a User instance.")
-        self._user = value
+    @user_id.setter
+    def user_id(self, value):
+        """Set the user ID with validation."""
+        if not value or not isinstance(value, str):
+            raise ValueError("User ID is required and must be a string.")
+        self._user_id = value

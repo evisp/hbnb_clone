@@ -132,54 +132,31 @@ class HBnBFacade:
     def create_place(self, place_data):
         """
         Create a new place.
-
+        
         Args:
-            place_data (dict): Data for creating a place, including:
-                - title (str)
-                - description (str, optional)
-                - price (float)
-                - latitude (float)
-                - longitude (float)
-                - owner_id (str)
-                - amenities (list of str) - amenities ids
-
+            place_data (dict): Dictionary containing place information
+                - title, description, price, latitude, longitude, owner_id, amenities
+        
         Returns:
-            Place: Created Place instance
-
-        Raises:
-            ValueError: If validation fails or referenced owner/amenities don't exist
+            Place: The created place instance
         """
-
-        # Validate and get owner instance
+        # Validate that owner exists
         owner_id = place_data.get('owner_id')
-        owner = self.user_repo.get(owner_id)
-        if not owner:
-            raise ValueError("Owner not found")
-
-        # Validate and get amenities instances
-        amenity_ids = place_data.get('amenities', [])
-        amenities = []
+        if not owner_id or not self.get_user(owner_id):
+            raise ValueError("Invalid owner_id")
+        
+        # Process amenities (convert IDs to Amenity objects)
+        amenity_ids = place_data.pop('amenities', [])
+        place = Place(**place_data)
+        
         for amenity_id in amenity_ids:
-            amenity = self.amenity_repo.get(amenity_id)
-            if not amenity:
-                raise ValueError(f"Amenity with id '{amenity_id}' not found")
-            amenities.append(amenity)
-
-        # Prepare Place data excluding owner_id and amenities list
-        place_init_data = place_data.copy()
-        place_init_data.pop('owner_id', None)
-        place_init_data.pop('amenities', None)
-
-        # Create Place instance with validated owner
-        place = Place(owner=owner, **place_init_data)
-
-        # Add amenities to place
-        for amenity in amenities:
-            place.add_amenity(amenity)
-
-        # Add place to repository
+            amenity = self.get_amenity(amenity_id)
+            if amenity:
+                place.add_amenity(amenity)
+        
         self.place_repo.add(place)
         return place
+
 
     def get_place(self, place_id):
         """
@@ -266,30 +243,28 @@ class HBnBFacade:
         Raises:
             ValueError: If validation fails or referenced user/place don't exist.
         """
-
         user_id = review_data.get('user_id')
         place_id = review_data.get('place_id')
 
+        # Validate user exists
         user = self.user_repo.get(user_id)
         if not user:
             raise ValueError("User not found")
 
+        # Validate place exists
         place = self.place_repo.get(place_id)
         if not place:
             raise ValueError("Place not found")
 
-        # Remove user_id and place_id before creating Review
-        review_init_data = review_data.copy()
-        review_init_data.pop('user_id', None)
-        review_init_data.pop('place_id', None)
-
-        review = Review(user=user, place=place, **review_init_data)
-        self.review_repo.add(review)
-
-        # Add review to place's reviews list
+        # Create review with IDs (no need to remove them anymore)
+        review = Review(**review_data)
+        
+        # Add review to place's reviews list for relationship tracking
         place.add_review(review)
-
+        
+        self.review_repo.add(review)
         return review
+
 
 
     def get_review(self, review_id):
@@ -329,8 +304,34 @@ class HBnBFacade:
         place = self.place_repo.get(place_id)
         if not place:
             raise ValueError("Place not found")
+        
         # Return all reviews associated with this place
         return place.reviews
+    
+    def get_review_by_user_and_place(self, user_id, place_id):
+        """
+        Check if a user has already reviewed a specific place.
+        
+        Args:
+            user_id (str): User UUID
+            place_id (str): Place UUID
+        
+        Returns:
+            Review instance if found, None otherwise
+        """
+        # Get all reviews for the place
+        place = self.place_repo.get(place_id)
+        if not place:
+            return None
+        
+        # Check if any review is by this user
+        for review in place.reviews:
+            if review.user_id == user_id:
+                return review
+        
+        return None
+
+
 
 
     def update_review(self, review_id, review_data):
@@ -351,48 +352,47 @@ class HBnBFacade:
         if not review:
             return None
 
-        # Update user if user_id provided
+        # Validate user if user_id provided
         if 'user_id' in review_data:
             user = self.user_repo.get(review_data['user_id'])
             if not user:
                 raise ValueError("User not found")
-            review.user = user
-            review_data.pop('user_id')
+            # user_id will be updated below
 
-        # Update place if place_id provided
+        # Validate place if place_id provided
         if 'place_id' in review_data:
             place = self.place_repo.get(review_data['place_id'])
             if not place:
                 raise ValueError("Place not found")
-            review.place = place
-            review_data.pop('place_id')
+            # place_id will be updated below
 
-        # Update other fields (text, rating)
+        # Update the review using the repository
         self.review_repo.update(review_id, review_data)
-
         return review
 
 
     def delete_review(self, review_id):
         """
         Delete a review.
-
+        
         Args:
-            review_id (str): Review UUID.
-
+            review_id (str): Review UUID
+        
         Returns:
-            True if deleted, False if not found.
+            bool: True if deleted, False if not found
         """
         review = self.get_review(review_id)
         if not review:
             return False
+        
+        # Remove review from place's reviews list
+        place = self.place_repo.get(review.place_id)
+        if place and review in place.reviews:
+            place.reviews.remove(review)
+        
+        # Delete the review from repository
+        return self.review_repo.delete(review_id)
 
-        # Remove from place's reviews collection
-        if review.place and review in review.place.reviews:
-            review.place.reviews.remove(review)
-
-        self.review_repo.delete(review_id)
-        return True
 
     # =====================
     # Amenity-related methods (Placeholders for now)
