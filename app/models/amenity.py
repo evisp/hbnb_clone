@@ -5,7 +5,7 @@ Defines the Amenity entity with validation.
 
 from app.models.base_model import BaseModel
 from app.extensions import db
-from sqlalchemy.orm import validates
+from sqlalchemy.orm import validates, relationship
 
 
 class Amenity(BaseModel):
@@ -17,11 +17,15 @@ class Amenity(BaseModel):
         name (str): Name of the amenity (max 50 chars, required, unique)
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
+        places: Relationship to Place (many-to-many)
     """
     
     __tablename__ = 'amenities'
     
     name = db.Column(db.String(50), nullable=False, unique=True)
+    
+    # Relationships
+    places = relationship('Place', secondary='place_amenity', back_populates='amenities', lazy='select')
     
     @validates('name')
     def validate_name(self, key, value):

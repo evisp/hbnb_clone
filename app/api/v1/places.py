@@ -19,7 +19,6 @@ place_model = api.model('Place', {
     'amenities': fields.List(fields.String, required=True, description='List of amenities ID')
 })
 
-
 @api.route('/')
 class PlaceList(Resource):
     @api.expect(place_model)
@@ -44,7 +43,8 @@ class PlaceList(Resource):
                 'price': new_place.price,
                 'latitude': new_place.latitude,
                 'longitude': new_place.longitude,
-                'owner_id': new_place.owner_id
+                'owner_id': new_place.owner_id,
+                'amenities': [amenity.id for amenity in new_place.amenities]
             }, 201
 
         except ValueError as e:
@@ -61,11 +61,11 @@ class PlaceList(Resource):
                 'description': place.description,
                 'price': place.price,
                 'latitude': place.latitude,
-                'longitude': place.longitude
+                'longitude': place.longitude,
+                'amenities': [{'id': amenity.id, 'name': amenity.name} for amenity in place.amenities]
             }
             for place in places
         ], 200
-
 
 @api.route('/<place_id>')
 @api.param('place_id', 'The place unique identifier')
@@ -85,8 +85,8 @@ class PlaceResource(Resource):
             'price': place.price,
             'latitude': place.latitude,
             'longitude': place.longitude,
-            'owner_id': place.owner_id
-            #'amenities': [amenity.id for amenity in place.amenities]
+            'owner_id': place.owner_id,
+            'amenities': [{'id': amenity.id, 'name': amenity.name} for amenity in place.amenities]
         }, 200
 
     @api.expect(place_model)
@@ -147,3 +147,36 @@ class PlaceResource(Resource):
         facade.delete_place(place_id)
         
         return {'message': 'Place deleted successfully'}, 200
+
+@api.route('/<place_id>/amenities/<amenity_id>')
+@api.param('place_id', 'The place unique identifier')
+@api.param('amenity_id', 'The amenity unique identifier')
+class PlaceAmenityResource(Resource):
+    @api.response(200, 'Amenity added to place successfully')
+    @api.response(404, 'Place or amenity not found')
+    @api.response(400, 'Amenity already associated with place')
+    @api.response(401, 'Unauthorized - Authentication required')
+    @jwt_required()
+    def post(self, place_id, amenity_id):
+        """Add an amenity to a place (Authentication required)."""
+        try:
+            facade.add_amenity_to_place(place_id, amenity_id)
+            return {'message': 'Amenity added to place successfully'}, 200
+        except ValueError as e:
+            return {'error': str(e)}, 400
+        except Exception as e:
+            return {'error': 'Place or amenity not found'}, 404
+
+    @api.response(200, 'Amenity removed from place successfully')
+    @api.response(404, 'Place or amenity not found')
+    @api.response(401, 'Unauthorized - Authentication required')
+    @jwt_required()
+    def delete(self, place_id, amenity_id):
+        """Remove an amenity from a place (Authentication required)."""
+        try:
+            facade.remove_amenity_from_place(place_id, amenity_id)
+            return {'message': 'Amenity removed from place successfully'}, 200
+        except ValueError as e:
+            return {'error': str(e)}, 400
+        except Exception as e:
+            return {'error': 'Place or amenity not found'}, 404

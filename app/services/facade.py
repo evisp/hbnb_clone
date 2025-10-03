@@ -253,6 +253,62 @@ class HBnBFacade:
         self.place_repo.delete(place_id)
         return True
     
+    def add_amenity_to_place(self, place_id, amenity_id):
+        """
+        Add an amenity to a place (many-to-many relationship).
+        
+        Args:
+            place_id (str): Place UUID
+            amenity_id (str): Amenity UUID
+        
+        Raises:
+            ValueError: If place or amenity not found, or amenity already associated
+        """
+        place = self.get_place(place_id)
+        if not place:
+            raise ValueError("Place not found")
+        
+        amenity = self.get_amenity(amenity_id)
+        if not amenity:
+            raise ValueError("Amenity not found")
+        
+        # Check if amenity is already associated
+        if amenity in place.amenities:
+            raise ValueError("Amenity already associated with this place")
+        
+        # Add amenity to place using SQLAlchemy relationship
+        place.amenities.append(amenity)
+        self.place_repo.update(place_id, {})  # Triggers commit
+        
+    
+    def remove_amenity_from_place(self, place_id, amenity_id):
+        """
+        Remove an amenity from a place (many-to-many relationship).
+        
+        Args:
+            place_id (str): Place UUID
+            amenity_id (str): Amenity UUID
+        
+        Raises:
+            ValueError: If place or amenity not found, or amenity not associated
+        """
+        place = self.get_place(place_id)
+        if not place:
+            raise ValueError("Place not found")
+        
+        amenity = self.get_amenity(amenity_id)
+        if not amenity:
+            raise ValueError("Amenity not found")
+        
+        # Check if amenity is associated
+        if amenity not in place.amenities:
+            raise ValueError("Amenity not associated with this place")
+        
+        # Remove amenity from place using SQLAlchemy relationship
+        place.amenities.remove(amenity)
+        self.place_repo.update(place_id, {})  # Triggers commit
+
+    
     # =====================
     # Amenity-related methods 
     # =====================

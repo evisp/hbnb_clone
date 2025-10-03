@@ -6,7 +6,7 @@ Defines the User entity with validation for user attributes.
 from app.models.base_model import BaseModel
 from app.extensions import bcrypt
 from app.extensions import db
-from sqlalchemy.orm import validates
+from sqlalchemy.orm import validates, relationship
 
 
 class User(BaseModel):
@@ -22,6 +22,8 @@ class User(BaseModel):
         is_admin (bool): Admin privileges flag (defaults to False)
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
+        places: Relationship to Place (one-to-many)
+        reviews: Relationship to Review (one-to-many)
     """
     
     __tablename__ = 'users'
@@ -32,6 +34,9 @@ class User(BaseModel):
     password = db.Column(db.String(128), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
 
+    # Relationships
+    places = relationship('Place', back_populates='owner', lazy='select', cascade='all, delete-orphan')
+    reviews = relationship('Review', back_populates='user', lazy='select', cascade='all, delete-orphan')
 
     @validates('first_name')
     def validate_first_name(self, key, value):
@@ -39,13 +44,11 @@ class User(BaseModel):
         self.validate_string_length(value, "First name", 50, required=True)
         return value
 
-
     @validates('last_name')
     def validate_last_name(self, key, value):
         """Validate last name length and requirement."""
         self.validate_string_length(value, "Last name", 50, required=True)
         return value
-
 
     @validates('email')
     def validate_email_format(self, key, value):
@@ -53,7 +56,6 @@ class User(BaseModel):
         if not value or not self.validate_email(value):
             raise ValueError("Invalid email format.")
         return value
-
 
     def hash_password(self, password):
         """
@@ -63,7 +65,6 @@ class User(BaseModel):
             password (str): Plain text password to hash
         """
         self.password = bcrypt.generate_password_hash(password).decode('utf-8')
-
 
     def verify_password(self, password):
         """

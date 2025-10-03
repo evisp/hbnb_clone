@@ -5,7 +5,8 @@ Defines the Review entity with validation and relationships.
 
 from app.models.base_model import BaseModel
 from app.extensions import db
-from sqlalchemy.orm import validates
+from sqlalchemy.orm import validates, relationship
+from sqlalchemy import ForeignKey
 
 
 class Review(BaseModel):
@@ -20,14 +21,20 @@ class Review(BaseModel):
         user_id (str): ID of the user who wrote the review (required)
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
+        place: Relationship to Place (many-to-one)
+        user: Relationship to User (many-to-one)
     """
     
     __tablename__ = 'reviews'
     
     text = db.Column(db.String(1000), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
-    place_id = db.Column(db.String(36), nullable=False)
-    user_id = db.Column(db.String(36), nullable=False)
+    place_id = db.Column(db.String(36), ForeignKey('places.id'), nullable=False)
+    user_id = db.Column(db.String(36), ForeignKey('users.id'), nullable=False)
+    
+    # Relationships
+    place = relationship('Place', back_populates='reviews')
+    user = relationship('User', back_populates='reviews')
     
     @validates('text')
     def validate_text(self, key, value):

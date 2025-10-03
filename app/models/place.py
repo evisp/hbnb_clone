@@ -5,7 +5,8 @@ Defines the Place entity with validation and relationships.
 
 from app.models.base_model import BaseModel
 from app.extensions import db
-from sqlalchemy.orm import validates
+from sqlalchemy.orm import validates, relationship
+from sqlalchemy import ForeignKey
 
 
 class Place(BaseModel):
@@ -22,6 +23,9 @@ class Place(BaseModel):
         owner_id (str): ID of the user who owns the place (required)
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
+        owner: Relationship to User (many-to-one)
+        reviews: Relationship to Review (one-to-many)
+        amenities: Relationship to Amenity (many-to-many)
     """
     
     __tablename__ = 'places'
@@ -31,10 +35,12 @@ class Place(BaseModel):
     price = db.Column(db.Float, nullable=False)
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
-    owner_id = db.Column(db.String(36), nullable=False)
+    owner_id = db.Column(db.String(36), ForeignKey('users.id'), nullable=False)
     
-    # Note: reviews and amenities relationships will be added in next task
-    # For now, we'll handle them in-memory in the facade
+    # Relationships
+    owner = relationship('User', back_populates='places')
+    reviews = relationship('Review', back_populates='place', lazy='select', cascade='all, delete-orphan')
+    amenities = relationship('Amenity', secondary='place_amenity', back_populates='places', lazy='select')
     
     @validates('title')
     def validate_title(self, key, value):
