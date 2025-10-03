@@ -77,3 +77,4 @@ class ProtectedResource(Resource):
             'user_id': current_user_id,
             'is_admin': claims.get('is_admin', False)
         }, 200
+

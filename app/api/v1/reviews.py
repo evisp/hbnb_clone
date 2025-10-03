@@ -182,3 +182,4 @@ class PlaceReviewList(Resource):
 
         except ValueError as e:
             return {'error': str(e)}, 404
+
