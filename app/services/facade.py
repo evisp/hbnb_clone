@@ -4,6 +4,7 @@ Provides a unified interface for interacting with the business logic layer.
 """
 
 from app.persistence.repository import InMemoryRepository
+from app.persistence.repository import SQLAlchemyRepository
 from app.models.user import User
 from app.models.place import Place
 from app.models.review import Review
@@ -18,7 +19,8 @@ class HBnBFacade:
 
     def __init__(self):
         """Initialize repositories for each entity."""
-        self.user_repo = InMemoryRepository()
+        # self.user_repo = InMemoryRepository()
+        self.user_repo = SQLAlchemyRepository(User)
         self.place_repo = InMemoryRepository()
         self.review_repo = InMemoryRepository()
         self.amenity_repo = InMemoryRepository()
@@ -122,8 +124,8 @@ class HBnBFacade:
             user_data = {k: v for k, v in user_data.items() if k != 'password'}
         
         # Update other user fields (validation happens in User model via property setters)
-        self.user_repo.update(user_id, user_data)
-        return user
+        updated_user = self.user_repo.update(user_id, user_data)
+        return updated_user
 
 
     # =====================
