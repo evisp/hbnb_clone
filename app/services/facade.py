@@ -4,7 +4,7 @@ Provides a unified interface for interacting with the business logic layer.
 """
 
 from app.persistence.repository import InMemoryRepository
-from app.persistence.repository import SQLAlchemyRepository
+from app.persistence.user_repository import UserRepository
 from app.models.user import User
 from app.models.place import Place
 from app.models.review import Review
@@ -19,8 +19,7 @@ class HBnBFacade:
 
     def __init__(self):
         """Initialize repositories for each entity."""
-        # self.user_repo = InMemoryRepository()
-        self.user_repo = SQLAlchemyRepository(User)
+        self.user_repo = UserRepository()
         self.place_repo = InMemoryRepository()
         self.review_repo = InMemoryRepository()
         self.amenity_repo = InMemoryRepository()
@@ -38,6 +37,7 @@ class HBnBFacade:
                 - first_name (str): User's first name
                 - last_name (str): User's last name
                 - email (str): User's email address
+                - password (str): Plain text password
                 - is_admin (bool, optional): Admin status
         
         Returns:
@@ -51,8 +51,16 @@ class HBnBFacade:
         if existing_user:
             raise ValueError("Email already registered")
         
-        # Create new user (validation happens in User model)
+        # Extract password for hashing
+        password = user_data.pop('password', None)
+        
+        # Create new user (validation happens in User model via @validates)
         user = User(**user_data)
+        
+        # Hash password if provided
+        if password:
+            user.hash_password(password)
+        
         self.user_repo.add(user)
         return user
 
@@ -78,7 +86,7 @@ class HBnBFacade:
         Returns:
             User: The user instance, or None if not found
         """
-        return self.user_repo.get_by_attribute('email', email)
+        return self.user_repo.get_user_by_email(email)
 
     def get_all_users(self):
         """
@@ -123,10 +131,9 @@ class HBnBFacade:
             # Remove password from user_data so it's not set as plain text
             user_data = {k: v for k, v in user_data.items() if k != 'password'}
         
-        # Update other user fields (validation happens in User model via property setters)
+        # Update other user fields (validation happens in User model via @validates)
         updated_user = self.user_repo.update(user_id, user_data)
         return updated_user
-
 
     # =====================
     # Place-related methods
@@ -158,7 +165,6 @@ class HBnBFacade:
         
         self.place_repo.add(place)
         return place
-
 
     def get_place(self, place_id):
         """
@@ -246,7 +252,6 @@ class HBnBFacade:
         self.place_repo.delete(place_id)
         return True
 
-    
     # =====================
     # Review-related methods (Placeholders for now)
     # =====================
@@ -285,8 +290,6 @@ class HBnBFacade:
         
         self.review_repo.add(review)
         return review
-
-
 
     def get_review(self, review_id):
         """
@@ -352,9 +355,6 @@ class HBnBFacade:
         
         return None
 
-
-
-
     def update_review(self, review_id, review_data):
         """
         Update a review.
@@ -391,7 +391,6 @@ class HBnBFacade:
         self.review_repo.update(review_id, review_data)
         return review
 
-
     def delete_review(self, review_id):
         """
         Delete a review.
@@ -413,7 +412,6 @@ class HBnBFacade:
         
         # Delete the review from repository
         return self.review_repo.delete(review_id)
-
 
     # =====================
     # Amenity-related methods (Placeholders for now)

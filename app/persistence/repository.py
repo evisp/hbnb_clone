@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from app import db
+from app.extensions import db
 
 class Repository(ABC):
     @abstractmethod
@@ -61,7 +61,7 @@ class SQLAlchemyRepository(Repository):
         db.session.commit()
 
     def get(self, obj_id):
-        return self.model.query.get(obj_id)
+        return db.session.get(self.model, obj_id)
 
     def get_all(self):
         return self.model.query.all()
@@ -72,6 +72,7 @@ class SQLAlchemyRepository(Repository):
             for key, value in data.items():
                 setattr(obj, key, value)
             db.session.commit()
+        return obj  # <-- CRITICAL: Return the object
 
     def delete(self, obj_id):
         obj = self.get(obj_id)

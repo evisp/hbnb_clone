@@ -49,8 +49,15 @@ nosetests.xml
 local_settings.py
 db.sqlite3
 
-# Flask stuff:
+# SQLite database files
+*.db
+*.sqlite3
+*.sqlite
+
+# Flask instance folder (contains databases and config)
 instance/
+instance/*.db
+instance/*.sqlite3
 .webassets-cache
 
 # Environment variables and virtual environments

@@ -5,6 +5,9 @@ Defines the User entity with validation for user attributes.
 
 from app.models.base_model import BaseModel
 from app.extensions import bcrypt
+from app.extensions import db
+from sqlalchemy.orm import validates
+
 
 class User(BaseModel):
     """
@@ -14,83 +17,43 @@ class User(BaseModel):
         id (str): Unique identifier (inherited from BaseModel)
         first_name (str): First name of the user (max 50 chars, required)
         last_name (str): Last name of the user (max 50 chars, required)
-        email (str): Email address (required, must be valid format)
+        email (str): Email address (required, must be valid format, unique)
+        password (str): Hashed password
         is_admin (bool): Admin privileges flag (defaults to False)
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
     """
+    
+    __tablename__ = 'users'
 
-    def __init__(self, first_name, last_name, email, is_admin=False, password=None):
-        """
-        Initialize a new User instance.
-        
-        Args:
-            first_name (str): First name of the user
-            last_name (str): Last name of the user
-            email (str): Email address of the user
-            is_admin (bool, optional): Admin status. Defaults to False.
-            password (str, optional): Plain text password. Defaults to None.
-            
-        Raises:
-            ValueError: If any validation fails
-        """
-        super().__init__()
-        
-        # Use property setters for validation
-        self.first_name = first_name
-        self.last_name = last_name
-        self.email = email
-        self.is_admin = is_admin
-        self._password = None  # Initialize password attribute
-        
-        # Hash password if provided
-        if password:
-            self.hash_password(password)
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(120), nullable=False, unique=True)
+    password = db.Column(db.String(128), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
 
-    @property
-    def first_name(self):
-        """Get the first name."""
-        return self._first_name
-
-    @first_name.setter
-    def first_name(self, value):
-        """Set the first name with validation."""
+    @validates('first_name')
+    def validate_first_name(self, key, value):
+        """Validate first name length and requirement."""
         self.validate_string_length(value, "First name", 50, required=True)
-        self._first_name = value
+        return value
 
-    @property
-    def last_name(self):
-        """Get the last name."""
-        return self._last_name
 
-    @last_name.setter
-    def last_name(self, value):
-        """Set the last name with validation."""
+    @validates('last_name')
+    def validate_last_name(self, key, value):
+        """Validate last name length and requirement."""
         self.validate_string_length(value, "Last name", 50, required=True)
-        self._last_name = value
+        return value
 
-    @property
-    def email(self):
-        """Get the email address."""
-        return self._email
 
-    @email.setter
-    def email(self, value):
-        """Set the email with format validation."""
+    @validates('email')
+    def validate_email_format(self, key, value):
+        """Validate email format."""
         if not value or not self.validate_email(value):
             raise ValueError("Invalid email format.")
-        self._email = value
+        return value
 
-    @property
-    def is_admin(self):
-        """Get admin status."""
-        return self._is_admin
-
-    @is_admin.setter
-    def is_admin(self, value):
-        """Set admin status."""
-        self._is_admin = value
 
     def hash_password(self, password):
         """
@@ -99,8 +62,8 @@ class User(BaseModel):
         Args:
             password (str): Plain text password to hash
         """
-        self._password = bcrypt.generate_password_hash(password).decode('utf-8')
-        print(f"DEBUG: Password hashed: {self._password}")  # Temporary debug line
+        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
+
 
     def verify_password(self, password):
         """
@@ -112,5 +75,4 @@ class User(BaseModel):
         Returns:
             bool: True if password matches, False otherwise
         """
-        return bcrypt.check_password_hash(self._password, password)
-
+        return bcrypt.check_password_hash(self.password, password)

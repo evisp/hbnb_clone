@@ -1,48 +1,30 @@
 """
 Base model class for all entities in the HBnB application.
-Provides common attributes and methods for ID generation, timestamps, and updates.
+Provides common attributes and methods for ID generation, timestamps, and validation utilities.
 """
 
 import uuid
 from datetime import datetime
 import re
+from app.extensions import db
 
 
-class BaseModel:
+class BaseModel(db.Model):
     """
-    Base class for all business logic entities.
+    Base class for all business logic entities (SQLAlchemy model).
     
     Attributes:
         id (str): Unique identifier (UUID) for the entity
         created_at (datetime): Timestamp when the entity was created
         updated_at (datetime): Timestamp when the entity was last updated
     """
+    
+    __abstract__ = True  # This ensures SQLAlchemy does not create a table for BaseModel
 
-    def __init__(self):
-        """Initialize a new BaseModel instance with UUID and timestamps."""
-        self.id = str(uuid.uuid4())
-        self.created_at = datetime.now()
-        self.updated_at = datetime.now()
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    def save(self):
-        """Update the updated_at timestamp whenever the object is modified."""
-        self.updated_at = datetime.now()
-
-    def update(self, data):
-        """
-        Update the attributes of the object based on the provided dictionary.
-        
-        Args:
-            data (dict): Dictionary containing attribute names and new values
-            
-        Note:
-            Only updates attributes that already exist on the object.
-            Automatically updates the updated_at timestamp.
-        """
-        for key, value in data.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-        self.save()  # Update the updated_at timestamp
 
     @staticmethod
     def validate_email(email):
@@ -57,6 +39,7 @@ class BaseModel:
         """
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return re.match(pattern, email) is not None
+
 
     @staticmethod
     def validate_string_length(value, field_name, max_length, required=True):
@@ -77,6 +60,7 @@ class BaseModel:
         
         if value and len(value) > max_length:
             raise ValueError(f"{field_name} must not exceed {max_length} characters.")
+
 
     @staticmethod
     def validate_number_range(value, field_name, min_value=None, max_value=None):
