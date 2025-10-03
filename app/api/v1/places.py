@@ -85,8 +85,8 @@ class PlaceResource(Resource):
             'price': place.price,
             'latitude': place.latitude,
             'longitude': place.longitude,
-            'owner_id': place.owner_id,
-            'amenities': [amenity.id for amenity in place.amenities]
+            'owner_id': place.owner_id
+            #'amenities': [amenity.id for amenity in place.amenities]
         }, 200
 
     @api.expect(place_model)

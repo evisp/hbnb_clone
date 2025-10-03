@@ -5,6 +5,10 @@ Provides a unified interface for interacting with the business logic layer.
 
 from app.persistence.repository import InMemoryRepository
 from app.persistence.user_repository import UserRepository
+from app.persistence.amenity_repository import AmenityRepository
+from app.persistence.place_repository import PlaceRepository
+from app.persistence.review_repository import ReviewRepository
+
 from app.models.user import User
 from app.models.place import Place
 from app.models.review import Review
@@ -20,9 +24,10 @@ class HBnBFacade:
     def __init__(self):
         """Initialize repositories for each entity."""
         self.user_repo = UserRepository()
-        self.place_repo = InMemoryRepository()
-        self.review_repo = InMemoryRepository()
-        self.amenity_repo = InMemoryRepository()
+        self.place_repo = PlaceRepository()
+        self.review_repo = ReviewRepository()
+        self.amenity_repo = AmenityRepository()
+
 
     # =====================
     # User-related methods
@@ -138,37 +143,39 @@ class HBnBFacade:
     # =====================
     # Place-related methods
     # =====================
+
     def create_place(self, place_data):
         """
         Create a new place.
         
         Args:
             place_data (dict): Dictionary containing place information
-                - title, description, price, latitude, longitude, owner_id, amenities
+                - title, description, price, latitude, longitude, owner_id
+                - amenities (list, optional): Will be ignored until relationships implemented
         
         Returns:
             Place: The created place instance
+            
+        Note:
+            Amenities are accepted but not persisted yet (relationships task).
         """
         # Validate that owner exists
         owner_id = place_data.get('owner_id')
         if not owner_id or not self.get_user(owner_id):
             raise ValueError("Invalid owner_id")
         
-        # Process amenities (convert IDs to Amenity objects)
-        amenity_ids = place_data.pop('amenities', [])
+        # Remove amenities from place_data (not persisted yet)
+        place_data.pop('amenities', [])
+        
+        # Create place with validated data
         place = Place(**place_data)
-        
-        for amenity_id in amenity_ids:
-            amenity = self.get_amenity(amenity_id)
-            if amenity:
-                place.add_amenity(amenity)
-        
         self.place_repo.add(place)
         return place
 
+
     def get_place(self, place_id):
         """
-        Retrieve place by ID including owner and amenities.
+        Retrieve place by ID.
 
         Args:
             place_id (str): Place ID
@@ -177,6 +184,7 @@ class HBnBFacade:
             Place or None
         """
         return self.place_repo.get(place_id)
+
 
     def get_all_places(self):
         """
@@ -187,6 +195,7 @@ class HBnBFacade:
         """
         return self.place_repo.get_all()
 
+
     def update_place(self, place_id, place_data):
         """
         Update an existing place.
@@ -194,46 +203,38 @@ class HBnBFacade:
         Args:
             place_id (str): Place ID
             place_data (dict): Fields to update; can include
-                title, description, price, latitude, longitude,
-                owner_id, amenities (list of amenity IDs)
+                title, description, price, latitude, longitude, owner_id
+                - amenities: Will be ignored until relationships implemented
 
         Returns:
             Place: Updated Place instance or None if not found
 
         Raises:
-            ValueError: If validation fails or invalid owner/amenities
+            ValueError: If validation fails or invalid owner
+            
+        Note:
+            Amenities are accepted but not persisted yet (relationships task).
         """
         place = self.get_place(place_id)
         if not place:
             return None
 
-        # Owner update handling
+        # Validate owner if owner_id is being updated
         if 'owner_id' in place_data:
             new_owner_id = place_data['owner_id']
             new_owner = self.user_repo.get(new_owner_id)
             if not new_owner:
                 raise ValueError("Owner not found")
-            place.owner = new_owner
-            place_data.pop('owner_id')
+            # owner_id will be updated below
 
-        # Amenities update handling
-        if 'amenities' in place_data:
-            new_amenity_ids = place_data['amenities']
-            new_amenities = []
-            for aid in new_amenity_ids:
-                amenity = self.amenity_repo.get(aid)
-                if not amenity:
-                    raise ValueError(f"Amenity with id '{aid}' not found")
-                new_amenities.append(amenity)
-            # Replace existing amenities with new list
-            place.amenities = new_amenities
-            place_data.pop('amenities')
+        # Remove amenities from update data (not persisted yet)
+        place_data.pop('amenities', None)
 
-        # Update rest of the fields via repository update which triggers property setters
-        self.place_repo.update(place_id, place_data)
+        # Update place fields via repository
+        updated_place = self.place_repo.update(place_id, place_data)
+        return updated_place
 
-        return place
-    
+
     def delete_place(self, place_id):
         """
         Delete a place.
@@ -251,9 +252,92 @@ class HBnBFacade:
         # Delete the place from repository
         self.place_repo.delete(place_id)
         return True
+    
+    # =====================
+    # Amenity-related methods 
+    # =====================
+
+    def create_amenity(self, amenity_data):
+        """
+        Create a new amenity.
+        
+        Args:
+            amenity_data (dict): Dictionary with 'name' key
+        
+        Returns:
+            Amenity: Created Amenity instance
+        
+        Raises:
+            ValueError: If validation fails or duplicate name exists
+        """
+        name = amenity_data.get('name')
+        
+        # Check duplicate by name using repository method
+        existing = self.amenity_repo.get_amenity_by_name(name)
+        if existing:
+            raise ValueError("Amenity with this name already exists")
+        
+        # Create and add new amenity (validation happens via @validates)
+        amenity = Amenity(name=name)
+        self.amenity_repo.add(amenity)
+        return amenity
+
+
+    def get_amenity(self, amenity_id):
+        """
+        Retrieve amenity by ID.
+        
+        Args:
+            amenity_id (str): Amenity UUID
+        
+        Returns:
+            Amenity or None
+        """
+        return self.amenity_repo.get(amenity_id)
+
+
+    def get_all_amenities(self):
+        """
+        Retrieve a list of all amenities.
+        
+        Returns:
+            List of Amenity instances
+        """
+        return self.amenity_repo.get_all()
+
+
+    def update_amenity(self, amenity_id, amenity_data):
+        """
+        Update an amenity by ID.
+        
+        Args:
+            amenity_id (str): Amenity UUID
+            amenity_data (dict): Data containing keys to update, typically 'name'
+        
+        Returns:
+            Amenity: The updated Amenity instance, or None if not found
+        
+        Raises:
+            ValueError: If validation fails or duplicate name exists
+        """
+        amenity = self.get_amenity(amenity_id)
+        if not amenity:
+            return None
+        
+        if 'name' in amenity_data and amenity_data['name'] != amenity.name:
+            # Check duplicate name using repository method
+            existing = self.amenity_repo.get_amenity_by_name(amenity_data['name'])
+            if existing:
+                raise ValueError("Amenity with this name already exists")
+        
+        # Update using repository method (returns updated amenity)
+        updated_amenity = self.amenity_repo.update(amenity_id, amenity_data)
+        return updated_amenity
+
+
 
     # =====================
-    # Review-related methods (Placeholders for now)
+    # Review-related methods 
     # =====================
 
     def create_review(self, review_data):
@@ -282,14 +366,11 @@ class HBnBFacade:
         if not place:
             raise ValueError("Place not found")
 
-        # Create review with IDs (no need to remove them anymore)
+        # Create review with validated data
         review = Review(**review_data)
-        
-        # Add review to place's reviews list for relationship tracking
-        place.add_review(review)
-        
         self.review_repo.add(review)
         return review
+
 
     def get_review(self, review_id):
         """
@@ -303,6 +384,7 @@ class HBnBFacade:
         """
         return self.review_repo.get(review_id)
 
+
     def get_all_reviews(self):
         """
         Retrieve all reviews.
@@ -311,6 +393,7 @@ class HBnBFacade:
             List[Review]
         """
         return self.review_repo.get_all()
+
 
     def get_reviews_by_place(self, place_id):
         """
@@ -329,9 +412,10 @@ class HBnBFacade:
         if not place:
             raise ValueError("Place not found")
         
-        # Return all reviews associated with this place
-        return place.reviews
-    
+        # Use repository method to get reviews by place_id
+        return self.review_repo.get_reviews_by_place(place_id)
+
+
     def get_review_by_user_and_place(self, user_id, place_id):
         """
         Check if a user has already reviewed a specific place.
@@ -343,17 +427,8 @@ class HBnBFacade:
         Returns:
             Review instance if found, None otherwise
         """
-        # Get all reviews for the place
-        place = self.place_repo.get(place_id)
-        if not place:
-            return None
-        
-        # Check if any review is by this user
-        for review in place.reviews:
-            if review.user_id == user_id:
-                return review
-        
-        return None
+        return self.review_repo.get_review_by_user_and_place(user_id, place_id)
+
 
     def update_review(self, review_id, review_data):
         """
@@ -378,18 +453,17 @@ class HBnBFacade:
             user = self.user_repo.get(review_data['user_id'])
             if not user:
                 raise ValueError("User not found")
-            # user_id will be updated below
 
         # Validate place if place_id provided
         if 'place_id' in review_data:
             place = self.place_repo.get(review_data['place_id'])
             if not place:
                 raise ValueError("Place not found")
-            # place_id will be updated below
 
         # Update the review using the repository
-        self.review_repo.update(review_id, review_data)
-        return review
+        updated_review = self.review_repo.update(review_id, review_data)
+        return updated_review
+
 
     def delete_review(self, review_id):
         """
@@ -405,88 +479,6 @@ class HBnBFacade:
         if not review:
             return False
         
-        # Remove review from place's reviews list
-        place = self.place_repo.get(review.place_id)
-        if place and review in place.reviews:
-            place.reviews.remove(review)
-        
         # Delete the review from repository
-        return self.review_repo.delete(review_id)
-
-    # =====================
-    # Amenity-related methods (Placeholders for now)
-    # =====================
-
-    def create_amenity(self, amenity_data):
-        """
-        Create a new amenity.
-        
-        Args:
-            amenity_data (dict): Dictionary with 'name' key
-        
-        Returns:
-            Amenity: Created Amenity instance
-        
-        Raises:
-            ValueError: If validation fails or duplicate name exists
-        """
-        name = amenity_data.get('name')
-
-        # Check duplicate by name (optional uniqueness)
-        existing = next((a for a in self.amenity_repo.get_all() if a.name == name), None)
-        if existing:
-            raise ValueError("Amenity with this name already exists")
-
-        # Create and add new amenity
-        amenity = Amenity(name=name)
-        self.amenity_repo.add(amenity)
-        return amenity
-
-    def get_amenity(self, amenity_id):
-        """
-        Retrieve amenity by ID.
-        
-        Args:
-            amenity_id (str): Amenity UUID
-        
-        Returns:
-            Amenity or None
-        """
-        return self.amenity_repo.get(amenity_id)
-
-    def get_all_amenities(self):
-        """
-        Retrieve a list of all amenities.
-        
-        Returns:
-            List of Amenity instances
-        """
-        return self.amenity_repo.get_all()
-
-    def update_amenity(self, amenity_id, amenity_data):
-        """
-        Update an amenity by ID.
-        
-        Args:
-            amenity_id (str): Amenity UUID
-            amenity_data (dict): Data containing keys to update, typically 'name'
-        
-        Returns:
-            Amenity: The updated Amenity instance, or None if not found
-        
-        Raises:
-            ValueError: If validation fails or duplicate name exists
-        """
-        amenity = self.get_amenity(amenity_id)
-        if not amenity:
-            return None
-
-        if 'name' in amenity_data and amenity_data['name'] != amenity.name:
-            # Check duplicate name
-            existing = next((a for a in self.amenity_repo.get_all() if a.name == amenity_data['name']), None)
-            if existing:
-                raise ValueError("Amenity with this name already exists")
-
-        # Update using repository method (which calls instance update)
-        self.amenity_repo.update(amenity_id, amenity_data)
-        return amenity
+        self.review_repo.delete(review_id)
+        return True

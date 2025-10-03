@@ -4,6 +4,8 @@ Defines the Amenity entity with validation.
 """
 
 from app.models.base_model import BaseModel
+from app.extensions import db
+from sqlalchemy.orm import validates
 
 
 class Amenity(BaseModel):
@@ -12,31 +14,17 @@ class Amenity(BaseModel):
     
     Attributes:
         id (str): Unique identifier (inherited from BaseModel)
-        name (str): Name of the amenity (max 50 chars, required)
+        name (str): Name of the amenity (max 50 chars, required, unique)
         created_at (datetime): Creation timestamp (inherited from BaseModel)
         updated_at (datetime): Last update timestamp (inherited from BaseModel)
     """
-
-    def __init__(self, name):
-        """
-        Initialize a new Amenity instance.
-        
-        Args:
-            name (str): Name of the amenity (e.g., "Wi-Fi", "Parking")
-            
-        Raises:
-            ValueError: If validation fails
-        """
-        super().__init__()
-        self.name = name  
-
-    @property
-    def name(self):
-        """Get the amenity name."""
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        """Set the amenity name with validation."""
+    
+    __tablename__ = 'amenities'
+    
+    name = db.Column(db.String(50), nullable=False, unique=True)
+    
+    @validates('name')
+    def validate_name(self, key, value):
+        """Validate amenity name length and requirement."""
         self.validate_string_length(value, "Amenity name", 50, required=True)
-        self._name = value
+        return value
