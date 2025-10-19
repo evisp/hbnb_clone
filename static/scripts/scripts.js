@@ -1,5 +1,8 @@
 const API_URL = 'http://127.0.0.1:5000/api/v1';
 
+// Global variable to store all places for filtering
+let allPlaces = [];
+
 // Cookie helper functions
 function setCookie(name, value, days = 7) {
     const expires = new Date();
@@ -30,6 +33,79 @@ function isAuthenticated() {
 // Helper function to get token
 function getToken() {
     return getCookie('token');
+}
+
+// Fetch places from API
+async function fetchPlaces() {
+    try {
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        // Include token in Authorization header if available
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`${API_URL}/places/`, {
+            method: 'GET',
+            headers: headers
+        });
+        
+        if (response.ok) {
+            const places = await response.json();
+            allPlaces = places; // Store for filtering
+            displayPlaces(places);
+        } else {
+            console.error('Failed to fetch places:', response.statusText);
+            document.getElementById('places-list').innerHTML = '<p>Failed to load places. Please try again later.</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching places:', error);
+        document.getElementById('places-list').innerHTML = '<p>Network error. Please try again later.</p>';
+    }
+}
+
+// Display places as cards
+function displayPlaces(places) {
+    const placesList = document.getElementById('places-list');
+    placesList.innerHTML = ''; // Clear current content
+    
+    if (places.length === 0) {
+        placesList.innerHTML = '<p>No places available.</p>';
+        return;
+    }
+    
+    places.forEach(place => {
+        const placeCard = document.createElement('div');
+        placeCard.className = 'place-card';
+        placeCard.dataset.price = place.price; // Store price for filtering
+        
+        placeCard.innerHTML = `
+            <h3>${place.title}</h3>
+            <p class="place-price">$${place.price} / night</p>
+            <p class="place-description">${place.description || 'No description available'}</p>
+            <button class="details-button" onclick="window.location.href='/place/${place.id}'">View Details</button>
+        `;
+        
+        placesList.appendChild(placeCard);
+    });
+}
+
+// Filter places by price
+function filterPlacesByPrice(maxPrice) {
+    const placeCards = document.querySelectorAll('.place-card');
+    
+    placeCards.forEach(card => {
+        const price = parseFloat(card.dataset.price);
+        
+        if (maxPrice === 'all' || price <= parseFloat(maxPrice)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
 }
 
 // Login functionality
@@ -79,25 +155,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Check authentication status on page load
+    // Setup price filter event listener
+    const priceFilter = document.getElementById('price-filter');
+    if (priceFilter) {
+        priceFilter.addEventListener('change', (event) => {
+            const selectedPrice = event.target.value;
+            filterPlacesByPrice(selectedPrice);
+        });
+    }
+    
+    // Check authentication status and fetch places on page load
     checkAuthStatus();
 });
 
-// Function to update login button based on authentication
+// Function to update login button based on authentication and fetch places
 function checkAuthStatus() {
-    const loginButton = document.querySelector('.login-button-nav');
+    const loginLink = document.getElementById('login-link');
     
-    if (loginButton) {
+    if (loginLink) {
         if (isAuthenticated()) {
-            loginButton.textContent = 'Logout';
-            loginButton.onclick = (e) => {
+            loginLink.textContent = 'Logout';
+            loginLink.onclick = (e) => {
                 e.preventDefault();
                 deleteCookie('token');
                 window.location.href = '/login';
             };
         } else {
-            loginButton.textContent = 'Login';
-            loginButton.href = '/login';
+            loginLink.textContent = 'Login';
+            loginLink.href = '/login';
         }
     }
+    
+    // Fetch places regardless of authentication status
+    // (API will return public places or all places based on token)
+    fetchPlaces();
 }

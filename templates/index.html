@@ -12,14 +12,25 @@
         <div class="header-content">
             <img src="{{ url_for('static', filename='images/logo.png') }}" alt="HBnB Logo" class="logo">
             <nav>
-                <a href="/login" class="login-button-nav">Login</a>
+                <a href="/" id="login-link" class="login-button-nav">Login</a>
             </nav>
         </div>
     </header>
 
     <main>
-        <h1>Places</h1>
-        <div id="places-list">
+        <div class="filters-section">
+            <h1>Places</h1>
+            <div class="filter-container">
+                <label for="price-filter">Filter by Price:</label>
+                <select id="price-filter">
+                    <option value="all">All</option>
+                    <option value="10">Up to $10</option>
+                    <option value="50">Up to $50</option>
+                    <option value="100">Up to $100</option>
+                </select>
+            </div>
+        </div>
+        <div id="places-list" class="places-container">
             <!-- Places will be loaded here by JavaScript -->
         </div>
     </main>
