@@ -369,3 +369,70 @@ function checkAuthStatus() {
         fetchPlaces();
     }
 }
+
+// Add review page functionality (for add_review.html standalone page)
+if (document.getElementById('add-review-form')) {
+    document.addEventListener('DOMContentLoaded', () => {
+        // Check authentication
+        const token = getToken();
+        if (!token) {
+            // Redirect to index if not authenticated
+            window.location.href = '/';
+            return;
+        }
+        
+        // Get place ID from URL
+        const placeId = getPlaceIdFromURL();
+        if (!placeId) {
+            alert('Invalid place ID');
+            window.location.href = '/';
+            return;
+        }
+        
+        // Setup form submission
+        const addReviewForm = document.getElementById('add-review-form');
+        addReviewForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const rating = document.getElementById('review-rating').value;
+            const text = document.getElementById('review-text').value;
+            const reviewMessage = document.getElementById('review-message');
+            
+            try {
+                const response = await fetch(`${API_URL}/reviews/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        place_id: placeId,
+                        rating: parseInt(rating),
+                        text: text
+                    })
+                });
+                
+                if (response.ok) {
+                    reviewMessage.style.color = 'green';
+                    reviewMessage.textContent = 'Review submitted successfully! Redirecting...';
+                    addReviewForm.reset();
+                    
+                    // Redirect back to place details after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = `/place/${placeId}`;
+                    }, 2000);
+                } else {
+                    const data = await response.json();
+                    reviewMessage.style.color = 'red';
+                    reviewMessage.textContent = data.error || 'Failed to submit review';
+                }
+            } catch (error) {
+                console.error('Error submitting review:', error);
+                reviewMessage.style.color = 'red';
+                reviewMessage.textContent = 'Network error. Please try again.';
+            }
+        });
+        
+        checkAuthStatus();
+    });
+}
