@@ -12,10 +12,22 @@ def create_app(config_class="config.DevelopmentConfig"):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Initialize extensions
     bcrypt.init_app(app)
     jwt.init_app(app)
     db.init_app(app)
+
+    # Register PRAGMA hook after db.init_app
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    @event.listens_for(Engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+        except Exception:
+            pass
 
     api = Api(app, version='1.0', title='HBnB API', description='HBnB Application API', doc='/api/v1/')
 
@@ -25,15 +37,13 @@ def create_app(config_class="config.DevelopmentConfig"):
     api.add_namespace(reviews_ns, path='/api/v1/reviews')
     api.add_namespace(auth_ns, path='/api/v1/auth')
 
-    # Register CLI commands
+    # CLI commands
     from app import commands
     commands.init_app(app)
 
+    # Create tables and seed default admin once app context is active
     with app.app_context():
         db.create_all()
-
-    # Initialize default data (admin user)
-    with app.app_context():
         from app.init_data import init_default_admin
         init_default_admin()
 
